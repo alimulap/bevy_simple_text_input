@@ -281,7 +281,7 @@ pub struct TextInputSubmitEvent {
 
 /// A system to validate text input.
 #[derive(Component)]
-pub struct TextInputValidation(Box<dyn Fn(&String, usize, &str) -> bool + Send + Sync>);
+pub struct TextInputValidation(pub Box<dyn Fn(&String, usize, &str) -> bool + Send + Sync>);
 
 /// A convenience parameter for dealing with a text input's inner Bevy `Text` entity.
 #[derive(SystemParam)]
