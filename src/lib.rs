@@ -279,6 +279,10 @@ pub struct TextInputSubmitEvent {
     pub value: String,
 }
 
+/// A system to validate text input.
+#[derive(Component)]
+pub struct TextInputValidation(Box<dyn Fn(&String, usize, &str) -> bool + Send + Sync>);
+
 /// A convenience parameter for dealing with a text input's inner Bevy `Text` entity.
 #[derive(SystemParam)]
 struct InnerText<'w, 's> {
@@ -307,6 +311,7 @@ fn keyboard(
     )>,
     mut submit_writer: EventWriter<TextInputSubmitEvent>,
     navigation: Res<TextInputNavigationBindings>,
+    input_validation: Query<&TextInputValidation>,
 ) {
     if input_reader.clone().read(&input_events).next().is_none() {
         return;
@@ -329,6 +334,8 @@ fn keyboard(
         }
 
         let mut submitted_value = None;
+
+        let input_validation = input_validation.get(input_entity).ok();
 
         for input in input_reader.clone().read(&input_events) {
             if !input.state.is_pressed() {
@@ -401,18 +408,21 @@ fn keyboard(
             match input.logical_key {
                 Key::Space => {
                     let byte_pos = byte_pos(&text_input.0, pos);
-                    text_input.0.insert(byte_pos, ' ');
-                    cursor_pos.0 += 1;
+                    if input_validation.map_or(true, |v| v.0(&text_input.0, byte_pos, " ")) {
+                        text_input.0.insert(byte_pos, ' ');
+                        cursor_pos.0 += 1;
 
-                    cursor_timer.should_reset = true;
+                        cursor_timer.should_reset = true;
+                    }
                 }
                 Key::Character(ref s) => {
                     let byte_pos = byte_pos(&text_input.0, pos);
-                    text_input.0.insert_str(byte_pos, s.as_str());
+                    if input_validation.map_or(true, |v| v.0(&text_input.0, byte_pos, s)) {
+                        text_input.0.insert(byte_pos, s.chars().next().unwrap());
+                        cursor_pos.0 += 1;
 
-                    cursor_pos.0 += 1;
-
-                    cursor_timer.should_reset = true;
+                        cursor_timer.should_reset = true;
+                    }
                 }
                 _ => (),
             }
